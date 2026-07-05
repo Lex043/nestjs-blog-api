@@ -23,4 +23,4 @@ jobs:
               with:
                   context: .
                   push: true
-                  tags: lex043/nestjs-blog-api:latest
+                  tags: 10603/nestjs-blog-api:latest
