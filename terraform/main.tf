@@ -6,7 +6,7 @@ data "aws_vpc" "default" {
 // key pair
 resource "aws_key_pair" "blog" {
   key_name   = "blog-key"
-  public_key = file("~/.ssh/blog-key.pub")
+  public_key = file("${path.module}/keys/blog-key.pub")
 }
 
 // security group to allow port 22, 80
