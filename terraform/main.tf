@@ -9,6 +9,39 @@ resource "aws_key_pair" "blog" {
   public_key = file("${path.module}/keys/blog-key.pub")
 }
 
+// iam role for ssm
+resource "aws_iam_role" "ec2_ssm" {
+  name = "ec2-ssm-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Sid    = ""
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      },
+    ]
+  })
+
+  tags = {
+    tag-key = "ec2-ssm-role"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "ssm" {
+  role       = aws_iam_role.ec2_ssm.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_instance_profile" "ec2" {
+  name = "ec2-ssm-profile"
+  role = aws_iam_role.role.ec2_ssm.name
+}
+
+
 // security group to allow port 22, 80
 resource "aws_security_group" "ec2" {
   name        = "blog-api-sg"
@@ -98,6 +131,8 @@ resource "aws_instance" "blog_api" {
   subnet_id = data.aws_subnets.default.ids[0]
 
   associate_public_ip_address = true
+
+  iam_instance_profile = aws_iam_instance_profile.ec2.name
 
   vpc_security_group_ids = [
     aws_security_group.ec2.id
