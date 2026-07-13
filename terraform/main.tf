@@ -23,7 +23,7 @@ resource "aws_security_group" "ec2" {
 resource "aws_vpc_security_group_ingress_rule" "ec2_ssh" {
   description       = "SSH"
   security_group_id = aws_security_group.ec2.id
-  cidr_ipv4         = "105.119.42.118/32"
+  cidr_ipv4         = "105.113.17.16/32"
   from_port         = 22
   ip_protocol       = "tcp"
   to_port           = 22
@@ -36,6 +36,16 @@ resource "aws_vpc_security_group_ingress_rule" "ec2_http" {
   from_port         = 80
   ip_protocol       = "tcp"
   to_port           = 80
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ec2_3000" {
+  description       = "NestJS"
+  security_group_id = aws_security_group.ec2.id
+  cidr_ipv4         = "0.0.0.0/0"
+
+  from_port   = 3000
+  to_port     = 3000
+  ip_protocol = "tcp"
 }
 
 resource "aws_vpc_security_group_egress_rule" "ec2_outbound" {
