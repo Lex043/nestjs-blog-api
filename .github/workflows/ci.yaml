@@ -41,6 +41,6 @@ jobs:
                     --comment "Deploy latest Docker image" \
                     --parameters 'commands=[
                       "cd /home/ubuntu/nestjs-blog-api",
-                      "docker compose -f docker-compose.prod.yml pull",
-                      "docker compose -f docker-compose.prod.yml up -d"
+                      "docker pull 10603/nestjs-blog-api:latest",
+                      "docker stack deploy -c docker-compose.prod.yml nestjs-blog-api"
                     ]'
