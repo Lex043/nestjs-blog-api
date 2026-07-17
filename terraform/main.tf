@@ -65,7 +65,7 @@ resource "aws_security_group" "ec2" {
 resource "aws_vpc_security_group_ingress_rule" "ec2_ssh" {
   description       = "SSH"
   security_group_id = aws_security_group.ec2.id
-  cidr_ipv4         = "105.119.20.253/32"
+  cidr_ipv4         = "105.119.41.23/32"
   from_port         = 22
   ip_protocol       = "tcp"
   to_port           = 22
