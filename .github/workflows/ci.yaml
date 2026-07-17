@@ -42,5 +42,5 @@ jobs:
                     --parameters 'commands=[
                       "cd /home/ubuntu/nestjs-blog-api",
                       "docker pull 10603/nestjs-blog-api:latest",
-                      "docker stack deploy -c docker-compose.prod.yml nestjs-blog-api"
+                      "docker stack deploy -c docker-compose.prod.yml blog"
                     ]'
