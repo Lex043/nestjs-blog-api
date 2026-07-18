@@ -40,6 +40,7 @@ jobs:
                     --document-name "AWS-RunShellScript" \
                     --comment "Deploy latest Docker image" \
                     --parameters 'commands=[
+                      "echo \"${{ secrets.DOCKERHUB_TOKEN }}\" | docker login -u \"${{ vars.DOCKERHUB_USERNAME }}\" --password-stdin",
                       "cd /home/ubuntu/nestjs-blog-api",
                       "docker pull 10603/nestjs-blog-api:latest",
                       "docker stack deploy --resolve-image always -c docker-compose.prod.yml blog"
