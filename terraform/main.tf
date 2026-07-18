@@ -93,7 +93,7 @@ resource "aws_vpc_security_group_ingress_rule" "ec2_http" {
 resource "aws_vpc_security_group_ingress_rule" "ec2_8080" {
   description       = "Traefik Dashboard"
   security_group_id = aws_security_group.ec2.id
-  cidr_ipv4         = "105.119.41.23/32"
+  cidr_ipv4         = "105.119.5.177/32"
 
   from_port   = 8080
   to_port     = 8080
