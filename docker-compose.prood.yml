@@ -41,7 +41,7 @@
 #                 - 'traefik.http.services.traefik.loadbalancer.server.port=8080'
 
 #     api:
-#         image: 10603/nestjs-blog-api:latest
+#         image: 10603/nestjs-blog-api:${IMAGE_TAG}
 #         networks:
 #             - web
 
