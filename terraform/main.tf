@@ -80,13 +80,23 @@ resource "aws_vpc_security_group_ingress_rule" "ec2_http" {
   to_port           = 80
 }
 
-resource "aws_vpc_security_group_ingress_rule" "ec2_3000" {
-  description       = "NestJS"
-  security_group_id = aws_security_group.ec2.id
-  cidr_ipv4         = "0.0.0.0/0"
+# resource "aws_vpc_security_group_ingress_rule" "ec2_3000" {
+#   description       = "NestJS"
+#   security_group_id = aws_security_group.ec2.id
+#   cidr_ipv4         = "0.0.0.0/0"
 
-  from_port   = 3000
-  to_port     = 3000
+#   from_port   = 3000
+#   to_port     = 3000
+#   ip_protocol = "tcp"
+# }
+
+resource "aws_vpc_security_group_ingress_rule" "ec2_8080" {
+  description       = "Traefik Dashboard"
+  security_group_id = aws_security_group.ec2.id
+  cidr_ipv4         = "105.119.41.23/32"
+
+  from_port   = 8080
+  to_port     = 8080
   ip_protocol = "tcp"
 }
 
