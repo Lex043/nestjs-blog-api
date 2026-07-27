@@ -168,7 +168,7 @@ resource "aws_ecs_service" "blog_api" {
   cluster         = aws_ecs_cluster.blog_api_cluster.id
   task_definition = aws_ecs_task_definition.blog_api_service.arn
   launch_type     = "FARGATE"
-  desired_count   = 1
+  desired_count   = 2
 
  network_configuration {
     subnets          = data.aws_subnets.default.ids
