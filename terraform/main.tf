@@ -12,6 +12,11 @@ terraform {
   }
 }
 
+resource "aws_cloudwatch_log_group" "blog_api" {
+  name              = "/ecs/blog-api"
+  retention_in_days = 7
+}
+
 // rds security group
 resource "aws_security_group" "rds" {
   name        = "blog-db-sg"
@@ -163,7 +168,7 @@ resource "aws_ecs_service" "blog_api" {
   cluster         = aws_ecs_cluster.blog_api_cluster.id
   task_definition = aws_ecs_task_definition.blog_api_service.arn
   launch_type     = "FARGATE"
-  desired_count   = 2
+  desired_count   = 1
 
  network_configuration {
     subnets          = data.aws_subnets.default.ids
@@ -230,6 +235,14 @@ resource "aws_ecs_task_definition" "blog_api_service" {
           value = var.db_password
         }
       ]
+      logConfiguration = {
+            logDriver = "awslogs"
+            options = {
+                "awslogs-group"         = "/ecs/blog-api"
+                "awslogs-region"        = "us-east-1"
+                "awslogs-stream-prefix" = "blog-api"
+            }
+        }
     },
   ])
 }
