@@ -231,8 +231,12 @@ resource "aws_ecs_task_definition" "blog_api_service" {
           value = aws_db_instance.blog.username
         },
         {
-          name  = "DB_PASSWORD"
+          name  = "DB_PASS"
           value = var.db_password
+        },
+        {
+          name  = "NODE_ENV"
+          value = "production"
         }
       ]
       logConfiguration = {
