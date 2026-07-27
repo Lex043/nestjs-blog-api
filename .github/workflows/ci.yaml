@@ -33,17 +33,24 @@ jobs:
                   tags: |
                       10603/nestjs-blog-api:latest
                       10603/nestjs-blog-api:${{ github.sha }}
-            - name: Deploy to EC2 via SSM
+            - name: Download current task definition
               run: |
-                  aws ssm send-command \
-                    --region us-east-1 \
-                    --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
-                    --document-name "AWS-RunShellScript" \
-                    --comment "Deploy latest Docker image" \
-                    --parameters 'commands=[
-                      "echo \"${{ secrets.DOCKERHUB_TOKEN }}\" | docker login -u \"${{ vars.DOCKERHUB_USERNAME }}\" --password-stdin",
-                      "cd /home/ubuntu/nestjs-blog-api",
-                      "docker pull 10603/nestjs-blog-api:${{ github.sha }}",
-                      "export IMAGE_TAG=${{ github.sha }}",
-                      "docker stack deploy -c docker-compose.prod.yml blog"
-                    ]'
+                  aws ecs describe-task-definition \
+                    --task-definition blog-api-service \
+                    --query taskDefinition > task-def.json
+
+            - name: Render new image into task definition
+              id: task-def
+              uses: aws-actions/amazon-ecs-render-task-definition@v1
+              with:
+                  task-definition: task-def.json
+                  container-name: blog-api
+                  image: 10603/nestjs-blog-api:${{ github.sha }}
+
+            - name: Deploy to ECS
+              uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+              with:
+                  task-definition: ${{ steps.task-def.outputs.task-definition }}
+                  service: nestjs-blog-api
+                  cluster: blog-api-cluster
+                  wait-for-service-stability: true

@@ -3,12 +3,6 @@ data "aws_vpc" "default" {
   default = true
 }
 
-// key pair
-resource "aws_key_pair" "blog" {
-  key_name   = "blog-key"
-  public_key = file("${path.module}/keys/blog-key.pub")
-}
-
 // terraform state bucket
 terraform {
   backend "s3" {
@@ -16,94 +10,6 @@ terraform {
     key    = "blog-api/terraform.tfstate"
     region = "us-east-1"
   }
-}
-
-// iam role for ssm
-resource "aws_iam_role" "ec2_ssm" {
-  name = "ec2-ssm-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Sid    = ""
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      },
-    ]
-  })
-
-  tags = {
-    tag-key = "ec2-ssm-role"
-  }
-}
-
-resource "aws_iam_role_policy_attachment" "ssm" {
-  role       = aws_iam_role.ec2_ssm.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-}
-
-resource "aws_iam_instance_profile" "ec2" {
-  name = "ec2-ssm-profile"
-  role = aws_iam_role.ec2_ssm.name
-}
-
-
-// security group to allow port 22, 80
-resource "aws_security_group" "ec2" {
-  name        = "blog-api-sg"
-  description = "Security group for Nestjs Blog API"
-  vpc_id      = data.aws_vpc.default.id
-
-  tags = {
-    Name = "blog-api-sg"
-  }
-}
-
-resource "aws_vpc_security_group_ingress_rule" "ec2_ssh" {
-  description       = "SSH"
-  security_group_id = aws_security_group.ec2.id
-  cidr_ipv4         = "105.119.5.177/32"
-  from_port         = 22
-  ip_protocol       = "tcp"
-  to_port           = 22
-}
-
-resource "aws_vpc_security_group_ingress_rule" "ec2_http" {
-  description       = "HTTP"
-  security_group_id = aws_security_group.ec2.id
-  cidr_ipv4         = "0.0.0.0/0"
-  from_port         = 80
-  ip_protocol       = "tcp"
-  to_port           = 80
-}
-
-# resource "aws_vpc_security_group_ingress_rule" "ec2_3000" {
-#   description       = "NestJS"
-#   security_group_id = aws_security_group.ec2.id
-#   cidr_ipv4         = "0.0.0.0/0"
-
-#   from_port   = 3000
-#   to_port     = 3000
-#   ip_protocol = "tcp"
-# }
-
-resource "aws_vpc_security_group_ingress_rule" "ec2_8080" {
-  description       = "Traefik Dashboard"
-  security_group_id = aws_security_group.ec2.id
-  cidr_ipv4         = "105.119.5.177/32"
-
-  from_port   = 8080
-  to_port     = 8080
-  ip_protocol = "tcp"
-}
-
-resource "aws_vpc_security_group_egress_rule" "ec2_outbound" {
-  security_group_id = aws_security_group.ec2.id
-  cidr_ipv4         = "0.0.0.0/0"
-  ip_protocol       = "-1"
 }
 
 // rds security group
@@ -124,7 +30,99 @@ resource "aws_vpc_security_group_ingress_rule" "postgres" {
   to_port     = 5432
   ip_protocol = "tcp"
 
-  referenced_security_group_id = aws_security_group.ec2.id
+  referenced_security_group_id = aws_security_group.ecs_tasks.id
+}
+
+// security group for the ALB
+resource "aws_security_group" "lb_sg" {
+  name        = "blog-api-lb-sg"
+  description = "Security group for the ALB"
+  vpc_id      = data.aws_vpc.default.id
+
+  tags = {
+    Name = "blog-api-lb-sg"
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "lb_http" {
+  security_group_id = aws_security_group.lb_sg.id
+  cidr_ipv4          = "0.0.0.0/0"
+  from_port          = 80
+  to_port             = 80
+  ip_protocol         = "tcp"
+}
+
+resource "aws_vpc_security_group_egress_rule" "lb_outbound" {
+  security_group_id = aws_security_group.lb_sg.id
+  cidr_ipv4          = "0.0.0.0/0"
+  ip_protocol         = "-1"
+}
+
+// security group for the Fargate tasks — only reachable from the ALB
+resource "aws_security_group" "ecs_tasks" {
+  name        = "blog-api-ecs-sg"
+  description = "Security group for Fargate tasks"
+  vpc_id      = data.aws_vpc.default.id
+
+  tags = {
+    Name = "blog-api-ecs-sg"
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ecs_from_lb" {
+  security_group_id            = aws_security_group.ecs_tasks.id
+  from_port                    = 80
+  to_port                      = 80
+  ip_protocol                  = "tcp"
+  referenced_security_group_id = aws_security_group.lb_sg.id
+}
+
+resource "aws_vpc_security_group_egress_rule" "ecs_outbound" {
+  security_group_id = aws_security_group.ecs_tasks.id
+  cidr_ipv4          = "0.0.0.0/0"
+  ip_protocol         = "-1"
+}
+
+// ECS task execution role
+resource "aws_iam_role" "ecs_execution" {
+  name = "ecs-task-execution-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "ecs-tasks.amazonaws.com" }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_execution" {
+  role       = aws_iam_role.ecs_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+// target group — where the ALB sends traffic
+resource "aws_lb_target_group" "blog_api" {
+  name        = "blog-api-tg"
+  port        = 80
+  protocol    = "HTTP"
+  vpc_id      = data.aws_vpc.default.id
+  target_type = "ip"
+
+  health_check {
+    path = "/"
+  }
+}
+
+resource "aws_lb_listener" "blog_api" {
+  load_balancer_arn = aws_lb.blog_api_alb.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.blog_api.arn
+  }
 }
 
 // subnets
@@ -140,26 +138,74 @@ resource "aws_db_subnet_group" "blog" {
   subnet_ids = data.aws_subnets.default.ids
 }
 
-// ec2 instance
-resource "aws_instance" "blog_api" {
-  ami           = var.ubuntu_ami
-  instance_type = "t3.micro"
+//alb
+resource "aws_lb" "blog_api_alb" {
+  name               = "blog-api-lb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.lb_sg.id]
+  subnets            = data.aws_subnets.default.ids
 
-  key_name = aws_key_pair.blog.key_name
-
-  subnet_id = data.aws_subnets.default.ids[0]
-
-  associate_public_ip_address = true
-
-  iam_instance_profile = aws_iam_instance_profile.ec2.name
-
-  vpc_security_group_ids = [
-    aws_security_group.ec2.id
-  ]
+  enable_deletion_protection = false
 
   tags = {
-    Name = "nestjs-blog-api"
+    Environment = "production"
   }
+}
+
+//ecs service
+resource "aws_ecs_service" "blog_api" {
+  name            = "nestjs-blog-api"
+  cluster         = aws_ecs_cluster.blog_api_cluster.id
+  task_definition = aws_ecs_task_definition.blog_api_service.arn
+  launch_type     = "FARGATE"
+  desired_count   = 2
+
+ network_configuration {
+    subnets          = data.aws_subnets.default.ids
+    security_groups  = [aws_security_group.ecs_tasks.id]
+    assign_public_ip = true
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.blog_api.arn
+    container_name    = "blog-api"
+    container_port    = 80
+  }
+
+  depends_on = [aws_lb_listener.blog_api]
+}
+
+//ecs cluster
+resource "aws_ecs_cluster" "blog_api_cluster" {
+  name = "blog-api-cluster"
+
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
+}
+
+//ecs task definition
+resource "aws_ecs_task_definition" "blog_api_service" {
+  family = "blog-api-service"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  execution_role_arn       = aws_iam_role.ecs_execution.arn
+  cpu                      = 1024
+  memory                   = 2048
+  container_definitions = jsonencode([
+    {
+      name      = "blog-api"
+      image     = "10603/nestjs-blog-api"
+      essential = true
+      portMappings = [
+        {
+          containerPort = 80
+        }
+      ]
+    },
+  ])
 }
 
 // postgresql rds
@@ -180,12 +226,6 @@ resource "aws_db_instance" "blog" {
 
 
 // output
-output "ec2_public_ip" {
-  description = "Public IP of the EC2 instance"
-
-  value = aws_instance.blog_api.public_ip
-}
-
 output "rds_endpoint" {
   description = "RDS endpoint"
 
