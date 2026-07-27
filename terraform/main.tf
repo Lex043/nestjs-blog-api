@@ -104,7 +104,7 @@ resource "aws_iam_role_policy_attachment" "ecs_execution" {
 // target group — where the ALB sends traffic
 resource "aws_lb_target_group" "blog_api" {
   name        = "blog-api-tg"
-  port        = 80
+  port        = 3000
   protocol    = "HTTP"
   vpc_id      = data.aws_vpc.default.id
   target_type = "ip"
@@ -170,7 +170,7 @@ resource "aws_ecs_service" "blog_api" {
   load_balancer {
     target_group_arn = aws_lb_target_group.blog_api.arn
     container_name    = "blog-api"
-    container_port    = 80
+    container_port    = 3000
   }
 
   depends_on = [aws_lb_listener.blog_api]
@@ -201,7 +201,29 @@ resource "aws_ecs_task_definition" "blog_api_service" {
       essential = true
       portMappings = [
         {
-          containerPort = 80
+          containerPort = 3000
+        }
+      ]
+      environment = [
+        {
+          name  = "DB_HOST"
+          value = aws_db_instance.blog.address
+        },
+        {
+          name  = "DB_PORT"
+          value = tostring(aws_db_instance.blog.port)
+        },
+        {
+          name  = "DB_NAME"
+          value = aws_db_instance.blog.db_name
+        },
+        {
+          name  = "DB_USER"
+          value = aws_db_instance.blog.username
+        },
+        {
+          name  = "DB_PASSWORD"
+          value = var.db_password
         }
       ]
     },
